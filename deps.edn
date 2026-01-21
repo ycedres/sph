@@ -1,0 +1,4 @@
+{:deps {babashka/process {:mvn/version "0.6.25"}
+        babashka/fs {:mvn/version "0.5.30"}
+        babashka/http-client {:git/url "https://github.com/babashka/http-client"
+                              :git/sha "d56bc7f86903d09ff3faef1500ad36005dab037f"}}}

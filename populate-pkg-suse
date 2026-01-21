@@ -1,0 +1,91 @@
+#!/usr/bin/env bb
+;; -*- mode: clojure; fill-column: 88; clojure-docstring-fill-column: 88; -*-
+(require '[babashka.fs :as fs]
+         '[babashka.process :refer [sh shell]]
+         '[babashka.http-client :as http]
+         '[clojure.string :as str])
+
+;; Populate pkg/suse/ in an openSUSE/salt checkout automatically.
+;; This program assumes it is called from such a git checkout.
+
+(defn- in-salt-checkout?
+  []
+  (-> (sh "git branch -l openSUSE/release/3006.0")
+      :out
+      str/trim
+      (= "openSUSE/release/3006.0")))
+
+(defn- ensure-dir [d]
+  (when-not (fs/exists? d)
+    (println "Create directory" (str d))
+    (fs/create-dirs d)))
+
+(defn- git-clone
+  "Clone a git repository from remto to target-dir."
+  [remote target-dir]
+  (println "Clone" remote "to" target-dir)
+  (sh "git clone" remote target-dir))
+
+(defn- git-repo-root []
+  (:out (sh "git rev-parse")))
+
+(def salt-packaging-files
+  ["salt.spec", "salt-tmpfiles.d", "transactional_update.conf", "_multibuild",
+   "update-documentation.sh"])
+
+(defn- copy-with-log [file dest]
+  (printf "Copy %s to %s\n" file dest)
+  (fs/copy file dest {:replace-existing true}))
+
+(defn- copy-files-from-salt-packaging [temp-dir dest-dir]
+  (let [packaging-dir (str (fs/path temp-dir "packaging"))
+        files (map #(fs/path packaging-dir "salt" %) salt-packaging-files)]
+    (git-clone "https://github.com/openSUSE/salt-packaging" packaging-dir)
+    (doall (map #(copy-with-log % dest-dir) files))))
+
+;; extract salt.changes for all packages called "salt" from these projects
+(def obs-changelog-projects
+  {:obs [{:changes "factory.changes" :project "openSUSE:Factory"}]
+   :ibs [{:changes "alp-1.0.changes" :project "SUSE:ALP:Source:Standard:1.0"},
+         {:changes "sle-15.4.changes" :project "SUSE:SLE-15-SP4:Update"},
+         {:changes "sle-15.5.changes" :project "SUSE:SLE-15-SP5:Update"},
+         {:changes "sle-15.7.changes" :project "SUSE:SLE-15-SP7:Update"},
+         {:changes "mlm-5.0.changes" :project "SUSE:SLE-15-SP6:Update:Products:Manager50:Update"}
+         {:changes "mlm-5.1.changes" :project "SUSE:SLE-15-SP7:Update:Products:MultiLinuxManager51:Update"}]})
+
+(defn- osc-download-changes-file [dest-dir api-url & {:keys [changes project]}]
+  (let [changelog-dir (fs/path dest-dir "changelogs")
+        _ (ensure-dir changelog-dir)
+        dest (str (fs/path changelog-dir changes))]
+    (printf "Download %s/salt/salt.changes from OBS (%s) to %s\n"
+            project api-url dest)
+    (shell {:out dest}
+           "osc" "-A" api-url "cat" project "salt" "salt.changes")))
+
+(defn- copy-files-from-buildservice [dest-dir]
+  (doall (map #(osc-download-changes-file dest-dir "https://api.opensuse.org" %)
+              (:obs obs-changelog-projects)))
+  (doall (map #(osc-download-changes-file dest-dir "https://api.suse.de" %)
+              (:ibs obs-changelog-projects))))
+
+;; extract salt.changes from src.suse.de/pool/salt for these branches
+(def package-git-branches ["slfo-1.2" "slfo-main"])
+(defn- gitea-download-changes-file [dest-dir branch]
+  (let [changelog-dir (fs/path dest-dir "changelogs")
+        _ (ensure-dir changelog-dir)
+        dest (str (fs/path changelog-dir (format "%s.changes" branch)))
+        url (format "https://src.opensuse.org/pool/salt/raw/branch/%s/salt.changes" branch)]
+    (println "Download" url "to" dest)
+    (spit dest (http/get url))))
+
+(defn- copy-files-from-package-git [dest-dir]
+  (doall (map #(gitea-download-changes-file dest-dir %) package-git-branches)))
+
+(if (in-salt-checkout?)
+  (let [pkg-suse (fs/path (git-repo-root) "pkg" "suse")]
+    (ensure-dir pkg-suse)
+    (fs/with-temp-dir [d]
+      (copy-files-from-salt-packaging d pkg-suse))
+    (copy-files-from-buildservice pkg-suse)
+    (copy-files-from-package-git pkg-suse))
+  (println "Error: Call this program from an in openSUSE/salt checkout!"))

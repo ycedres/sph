@@ -1,0 +1,8 @@
+.envrc
+.direnv/
+/.lsp/.cache
+/.clj-kondo/.cache
+/.lein-*
+/.nrepl-port
+/.prepl-port
+/.cpcache
