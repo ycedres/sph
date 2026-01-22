@@ -30,7 +30,7 @@
 ;; github.com
 (def salt-packaging-files
   ["salt.spec", "salt-tmpfiles.d", "transactional_update.conf", "_multibuild",
-   "update-documentation.sh"])
+   "update-documentation.sh", "README.SUSE"])
 
 (defn- github-download-packaging-file [filename dest-dir]
   (let [url (str "https://raw.githubusercontent.com/openSUSE/salt-packaging/"
