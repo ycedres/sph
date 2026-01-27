@@ -3,6 +3,7 @@
 (require '[babashka.fs :as fs]
          '[babashka.process :refer [sh shell]]
          '[babashka.http-client :as http]
+         '[clojure.java.io :as io]
          '[clojure.string :as str])
 
 ;; Populate pkg/suse/ in an openSUSE/salt checkout automatically.
@@ -11,8 +12,7 @@
 (defn- in-salt-checkout? []
   (-> (sh "git branch -l openSUSE/release/3006.0")
       :out
-      str/trim
-      (= "openSUSE/release/3006.0")))
+      (str/includes?  "openSUSE/release/3006.0")))
 
 (defn- ensure-dir [d]
   (when-not (fs/exists? d)
@@ -24,13 +24,15 @@
 
 (defn- download [url dest]
   (println "Download" url "to" dest)
-  (spit dest
-        (:body (http/get url))))
+  (-> url
+      (http/get {:as :stream})
+      :body
+      (io/copy (io/file dest))))
 
 ;; github.com
 (def salt-packaging-files
   ["salt.spec", "salt-tmpfiles.d", "transactional_update.conf", "_multibuild",
-   "update-documentation.sh", "README.SUSE"])
+   "update-documentation.sh", "README.SUSE", "html.tar.bz2"])
 
 (defn- github-download-packaging-file [filename dest-dir]
   (let [url (str "https://raw.githubusercontent.com/openSUSE/salt-packaging/"
@@ -38,8 +40,37 @@
         dest (str (fs/path dest-dir filename))]
     (download url dest)))
 
+;; (defmacro starts-with-any?
+;;   "Return true if (str/starts-with? s needle) is true for any needle in needles."
+;;   [s & needles]
+;;   (list 'or ))
+
+(defn- salt-spec-post-process
+  "Post-process the spec file for a package git repository."
+  [spec-filename]
+  (println "Post-processing" (str spec-filename))
+  (let [lines (fs/read-all-lines spec-filename)
+        processed-lines (mapcat (fn [line]
+                                  (cond
+                                    (str/starts-with? line "Source:")
+                                    ["#!CreateArchive: salt"
+                                     "Source:         salt-%{version}.tar.gz"]
+                                    (str/starts-with? line "%setup")
+                                    ["%setup -q"]
+                                    (str/includes? line "travis.yml")
+                                    []
+                                    (or (str/starts-with? line "# PATCH")
+                                        (str/starts-with? line "Patch")
+                                        (str/starts-with? line "###")
+                                        (str/starts-with? line "%autopatch"))
+                                    []
+                                    :else [line]))
+                                lines)]
+    (fs/write-lines spec-filename processed-lines)))
+
 (defn- copy-files-from-salt-packaging [dest-dir]
-  (doall (map #(github-download-packaging-file % dest-dir) salt-packaging-files)))
+  (doall (map #(github-download-packaging-file % dest-dir) salt-packaging-files))
+  (salt-spec-post-process (fs/path dest-dir "salt.spec")))
 
 ;; build.opensuse.org/build.suse.de
 (def obs-changelog-projects
