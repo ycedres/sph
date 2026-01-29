@@ -29,6 +29,25 @@
       :body
       (io/copy (io/file dest))))
 
+(defn- update-file
+  "Update file at path by applying function f to each line. f should return a vector for
+  each line."
+  [path f]
+  (println "Update" (str path))
+  (->> path
+       (fs/read-all-lines)
+       (mapcat f)
+       (fs/write-lines path)))
+
+(defn- update-readme
+  [dir]
+  (update-file (fs/path dir "README")
+               (fn [line]
+                 (if (str/starts-with? line "rpm/")
+                   [line
+                    "suse/ - SUSE (rpm) based distro packaging."]
+                   [line]))))
+
 ;; github.com
 (def salt-packaging-files
   ["salt.spec", "salt-tmpfiles.d", "transactional_update.conf", "_multibuild",
@@ -40,33 +59,27 @@
         dest (str (fs/path dest-dir filename))]
     (download url dest)))
 
-;; (defmacro starts-with-any?
-;;   "Return true if (str/starts-with? s needle) is true for any needle in needles."
-;;   [s & needles]
-;;   (list 'or ))
+(defn starts-with-any?
+  "Return true if (str/starts-with? s needle) is true for any needle in needles."
+  [s & needles]
+  (some #{true} (map #(str/starts-with? s %1) needles)))
 
 (defn- salt-spec-post-process
   "Post-process the spec file for a package git repository."
   [spec-filename]
-  (println "Post-processing" (str spec-filename))
-  (let [lines (fs/read-all-lines spec-filename)
-        processed-lines (mapcat (fn [line]
-                                  (cond
-                                    (str/starts-with? line "Source:")
-                                    ["#!CreateArchive: salt"
-                                     "Source:         salt-%{version}.tar.gz"]
-                                    (str/starts-with? line "%setup")
-                                    ["%setup -q"]
-                                    (str/includes? line "travis.yml")
-                                    []
-                                    (or (str/starts-with? line "# PATCH")
-                                        (str/starts-with? line "Patch")
-                                        (str/starts-with? line "###")
-                                        (str/starts-with? line "%autopatch"))
-                                    []
-                                    :else [line]))
-                                lines)]
-    (fs/write-lines spec-filename processed-lines)))
+  (update-file spec-filename
+               (fn [line]
+                 (cond
+                   (str/starts-with? line "Source:")
+                   ["#!CreateArchive: salt"
+                    "Source:         salt-%{version}.tar.gz"]
+                   (str/starts-with? line "%setup")
+                   ["%setup -q"]
+                   (str/includes? line "travis.yml")
+                   []
+                   (starts-with-any? line "# PATCH" "Patch" "###" "%autopatch")
+                   []
+                   :else [line]))))
 
 (defn- copy-files-from-salt-packaging [dest-dir]
   (doall (map #(github-download-packaging-file % dest-dir) salt-packaging-files))
@@ -113,6 +126,7 @@
 (if (in-salt-checkout?)
   (let [pkg-suse (fs/path (git-repo-root) "pkg" "suse")]
     (ensure-dir pkg-suse)
+    (update-readme (fs/path (git-repo-root) "pkg"))
     (copy-files-from-salt-packaging pkg-suse)
     (copy-files-from-buildservice pkg-suse)
     (copy-files-from-package-git pkg-suse))

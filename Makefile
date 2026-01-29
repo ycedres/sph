@@ -4,6 +4,8 @@
 ## Assumptions:
 ## 1. There is one branch in the Package-Git per maintained code stream
 ## 2. openSUSE/salt contains one changelog file per maintained code stream
+## 3. Makefile is used inside the Package-Git repo
+##
 ##
 ## NOTE: The approach taken updates one code stream / branch after another. A potential
 # improvement would be to compute different make targets, one for each branch, and execute
@@ -14,9 +16,8 @@
 # DEBUG - no default
 # MSG - no default
 BRANCHES ?= $(shell git branch -l | tr -d '[:blank:]*')
-SALT_VERSION ?= 3006.0
 SALT_REPO ?= https://github.com/openSUSE/salt
-SALT_BRANCH ?= openSUSE/release/$(SALT_VERSION)
+SALT_BRANCH ?= openSUSE/release/3006.0
 
 ## Internal Variables
 SHELL=/bin/bash
@@ -39,6 +40,12 @@ git_tracked_files := $(pkg_suse_files),salt,salt.changes
 this_file := $(lastword $(MAKEFILE_LIST))
 sub_make_flags := -f $(this_file)
 
+# TMPDIR is defined in the parent make process and passed to sub-make
+ifndef TMPDIR
+TMPDIR := $(shell mktemp -d)
+export TMPDIR
+endif
+
 # Pass --no-print-directory to sub-make when DEBUG is not set
 ifndef DEBUG
 sub_make_flags += --no-print-directory
@@ -52,51 +59,34 @@ git add {$(git_tracked_files)}; \
 if git status --porcelain --untracked-files=no | grep -q "."; \
 then \
 	git commit --message \
-"$$([ -n "$(MSG)" ] && echo "$(MSG)"  || echo Update to openSUSE/salt@$$(cat .rev))" ;\
+"$$([ -n "$(MSG)" ] && echo "$(MSG)" \
+|| echo Update to openSUSE/salt@$$(cd $$TMPDIR/salt && git rev-parse --short HEAD))" ;\
+else \
+	echo "No changes to commit" ;\
 fi
 endef
 
 ## Targets
 
 # Update branches in $BRANCHES (default: all git branches)
-.PHONY: update-branches
-update-branches:
-	@echo "Updating Salt branches: $(patsubst %,'%', $(BRANCHES))"
-	@$(foreach branch,$(BRANCHES),$\
-	    $(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch);)
-	@rm -f .rev
-
-# Update a single branch in Package git
 .PHONY: update
 update:
-	$(if $(value BRANCH),,$(error Must set BRANCH))
-	@$(MAKE) $(sub_make_flags) update-ipml
-	@rm -f .rev
+	@echo "Update branches: $(patsubst %,'%', $(BRANCHES))"
+	@echo Cache salt from $(SALT_REPO)#$(SALT_BRANCH)
+	@git clone --quiet --depth 1 --branch $(SALT_BRANCH) $(SALT_REPO) $(TMPDIR)/salt
+	@$(foreach branch,$(BRANCHES),$\
+	    $(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch) REV=$(rev);)
+	@rm -rf $(TMPDIR)
 
 .PHONY: update-ipml
 update-ipml:
-	$(if $(value BRANCH),,$(error Must set BRANCH))
-	@$(MAKE) $(sub_make_flags) salt-subdir
-	@echo "Updating $(BRANCH)"
-	@git switch $(BRANCH)
-	@$(MAKE) $(sub_make_flags) extract-files
-	@$(SHELL) -c '$(git_maybe_commit)'
-
-# Replace salt/ subdir with a fresh git clone, then delete its .git directory
-.PHONY: salt-subdir
-salt-subdir:
-	$(if $(value SALT_VERSION),,$(error Must set SALT_VERSION))
-	@rm -rf salt/
-	@git clone --depth 1 --branch $(SALT_BRANCH) $(SALT_REPO) salt/
-	@cd salt && git rev-parse --short HEAD >../.rev
-	@rm -rf salt/.git/
-
-# Copy files out of salt/ subdir
-.PHONY: extract-files
-extract-files:
-	$(if $(value BRANCH),,$(error Must set BRANCH))
-	cp salt/pkg/suse/{$(pkg_suse_files)} .
-	cp salt/pkg/suse/changelogs/$(BRANCH).changes salt.changes
+	@echo "Update branch: $(BRANCH)"
+	@git switch --quiet $(BRANCH)
+	@cp -r $(TMPDIR)/salt .
+	@rm -rf salt/.git*
+	@cp salt/pkg/suse/{$(pkg_suse_files)} .
+	@cp salt/pkg/suse/changelogs/$(BRANCH).changes salt.changes
+	@$(SHELL) -c 'TMPDIR=$(TMPDIR); $(git_maybe_commit)'
 
 html.tar.bz2:
 	sh update-documentation.sh salt-maintainers@suse.de --without-sphinx
