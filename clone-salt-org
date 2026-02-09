@@ -1,0 +1,20 @@
+#!/bin/bash
+# needs curl and jq
+
+if (( $# < 1)); then
+    echo "usage: clone-salt-org <dir>"
+    echo "  <dir>: directory where repos are cloned into"
+    exit 1
+fi
+
+workdir=${1}
+repos=($(curl --silent https://src.opensuse.org/api/v1/orgs/salt/repos | jq -r '.[].name'))
+
+if [[ ! -d "$workdir" ]]; then
+    mkdir -p "$workdir" || exit 1
+fi
+
+cd "$workdir" || exit 1
+for repo in "${repos[@]}"; do
+    git clone gitea@src.opensuse.org:salt/"$repo"
+done
