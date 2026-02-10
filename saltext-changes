@@ -1,0 +1,18 @@
+#!/usr/bin/bash
+
+export VC_REALNAME="Salt Maintainers" VC_MAILADDR="salt-maintainers@suse.de"
+
+script='
+versionCount==1 && /^### / { printf "- %s\n", $2 }; # inside latest version, new type of change
+versionCount==1 && /^-/ { $1=""; printf "  *%s\n", $0 }; # inside latest version, line starts with "-"
+/^## / { versionCount++; if(versionCount==1) printf "Update to version %s\n", $2 } # matches version, print update to <latest version>
+'
+
+msg=$(awk "$script" **/CHANGELOG.md)
+
+if [[ -z "$msg" ]]; then
+    echo "No new changelog entries, nothing to do."
+    exit 1
+else
+    osc vc --message "${msg}"
+fi
