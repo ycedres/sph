@@ -75,7 +75,7 @@ update:
 	@echo Cache salt from $(SALT_REPO)#$(SALT_BRANCH)
 	@git clone --quiet --depth 1 --branch $(SALT_BRANCH) $(SALT_REPO) $(TMPDIR)/salt
 	@$(foreach branch,$(BRANCHES),$\
-	    $(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch) REV=$(rev);)
+	    $(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch);)
 	@rm -rf $(TMPDIR)
 
 .PHONY: update-ipml
