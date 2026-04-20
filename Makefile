@@ -16,8 +16,10 @@
 # DEBUG - no default
 # MSG - no default
 BRANCHES ?= $(shell git branch -l | tr -d '[:blank:]*')
+CODESTREAMS ?= $(shell git branch -l sle-* | tr -d '[:blank:]*')
 SALT_REPO ?= https://github.com/openSUSE/salt
 SALT_BRANCH ?= openSUSE/release/3006.0
+OBS_API ?= https://api.suse.de
 
 ## Internal Variables
 SHELL=/bin/bash
@@ -29,7 +31,7 @@ SHELL=/bin/bash
 # comma-separated list of files to extract, expanded by the shell's Pathname expansion
 # usage: pkg/suse/{$(pkg_suse_files)}
 pkg_suse_files := README.SUSE,_multibuild,salt.spec,update-documentation.sh$\
-                  ,transactional_update.conf,salt-tmpfiles.d,html.tar.bz2
+  ,transactional_update.conf,salt-tmpfiles.d,html.tar.bz2
 
 # comma-separated list of files tracked in the package git repository, expanded
 # by the shell's Pathname expansion
@@ -59,8 +61,8 @@ git add {$(git_tracked_files)}; \
 if git status --porcelain --untracked-files=no | grep -q "."; \
 then \
 	git commit --message \
-"$$([ -n "$(MSG)" ] && echo "$(MSG)" \
-|| echo Update to openSUSE/salt@$$(cd $$TMPDIR/salt && git rev-parse --short HEAD))" ;\
+		"$$([ -n "$(MSG)" ] && echo "$(MSG)" \
+		|| echo Update to openSUSE/salt@$$(cd $$TMPDIR/salt && git rev-parse --short HEAD))" ;\
 else \
 	echo "No changes to commit" ;\
 fi
@@ -71,11 +73,11 @@ endef
 # Update branches in $BRANCHES (default: all git branches)
 .PHONY: update
 update:
-	@echo "Update branches: $(patsubst %,'%', $(BRANCHES))"
+	@echo "Update branches:$(patsubst %,'%', $(BRANCHES))"
 	@echo Cache salt from $(SALT_REPO)#$(SALT_BRANCH)
 	@git clone --quiet --depth 1 --branch $(SALT_BRANCH) $(SALT_REPO) $(TMPDIR)/salt
 	@$(foreach branch,$(BRANCHES),$\
-	    $(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch);)
+		$(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch);)
 	@rm -rf $(TMPDIR)
 
 .PHONY: update-ipml
@@ -87,6 +89,29 @@ update-ipml:
 	@cp salt/pkg/suse/{$(pkg_suse_files)} .
 	@cp salt/pkg/suse/changelogs/$(BRANCH).changes salt.changes
 	@$(SHELL) -c 'TMPDIR=$(TMPDIR); $(git_maybe_commit)'
+
+
+.PHONY: maintenancerequest mr
+mr: maintenancerequest
+maintenancerequest:
+	@echo "Preparing maintenancerequest for code streams:$(patsubst %, '%', $(CODESTREAMS))"
+	@$(foreach cstream,$(CODESTREAMS), $\
+		$(MAKE) $(sub_make_flags) mr-impl cstream=$(cstream);)
+
+.PHONY:
+mr-impl:
+	@echo "Preparing mr for: $(cstream)"
+	@git switch --quiet $(cstream)
+	@test -d $(TMPDIR)/$(cstream) || mkdir $(TMPDIR)/$(cstream)
+	@echo "cd $(TMPDIR)/$(cstream) && osc -A $(OBS_API) branch --checkout --maintenance \
+		SUSE:$(shell echo $(cstream) | sed 's/\./-SP/' | tr '[:lower:]' '[:upper:]'):Update \
+		salt "
+	@echo rsync -a --exclude=.git --exclude=Makefile . $(TMPDIR)/$(cstream)/home:*:branches:*/salt*/
+	@echo "cd $(TMPDIR)/$(cstream)/home:*:branches:*/salt*/ \
+		&& osc addremove \
+		&& osc ci -m 'Update salt' \
+		&& osc browse"
+	@echo "Please review changes and submit with \`osc mr -m 'jsc#<id>'\`"
 
 html.tar.bz2:
 	sh update-documentation.sh salt-maintainers@suse.de --without-sphinx
