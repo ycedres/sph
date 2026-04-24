@@ -20,6 +20,7 @@ CODESTREAMS ?= $(shell git branch -l sle-* | tr -d '[:blank:]*')
 SALT_REPO ?= https://github.com/openSUSE/salt
 SALT_BRANCH ?= openSUSE/release/3006.0
 OBS_API ?= https://api.suse.de
+GIT_PUSH ?= 1
 
 ## Internal Variables
 SHELL=/bin/bash
@@ -68,6 +69,13 @@ else \
 fi
 endef
 
+define git_maybe_push
+if (( $$(git rev-list --count @{u}..HEAD) > 0 )); \
+then \
+	git push origin ;\
+fi
+endef
+
 ## Targets
 
 # Update branches in $BRANCHES (default: all git branches)
@@ -89,7 +97,9 @@ update-ipml:
 	@cp salt/pkg/suse/{$(pkg_suse_files)} .
 	@cp salt/pkg/suse/changelogs/$(BRANCH).changes salt.changes
 	@$(SHELL) -c 'TMPDIR=$(TMPDIR); $(git_maybe_commit)'
-
+ifeq ($(GIT_PUSH), 1)
+	@$(SHELL) -c '$(git_maybe_push)'
+endif
 
 .PHONY: maintenancerequest mr
 mr: maintenancerequest
