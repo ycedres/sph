@@ -15,7 +15,7 @@
 ## Public Variables
 # DEBUG - no default
 # MSG - no default
-BRANCHES ?= $(shell git branch -l | tr -d '[:blank:]*')
+BRANCHES ?= $(shell git branch -r | sed -e '/HEAD/d' -e 's,origin/,,')
 CODESTREAMS ?= $(shell git branch -l sle-* | tr -d '[:blank:]*')
 SALT_REPO ?= https://github.com/openSUSE/salt
 SALT_BRANCH ?= openSUSE/release/3006.0
@@ -91,7 +91,7 @@ update:
 .PHONY: update-ipml
 update-ipml:
 	@echo "Update branch: $(BRANCH)"
-	@git switch --quiet $(BRANCH)
+	@git switch --quiet --force-create $(BRANCH) --track origin/$(BRANCH)
 	@cp -r $(TMPDIR)/salt .
 	@rm -rf salt/.git*
 	@cp salt/pkg/suse/{$(pkg_suse_files)} .
