@@ -1,127 +1,259 @@
-#### Update Salt Package Git
-##
-##
-## Assumptions:
-## 1. There is one branch in the Package-Git per maintained code stream
-## 2. openSUSE/salt contains one changelog file per maintained code stream
-## 3. Makefile is used inside the Package-Git repo
-##
-##
-## NOTE: The approach taken updates one code stream / branch after another. A potential
-# improvement would be to compute different make targets, one for each branch, and execute
-# them in parallel. Such an approach needs to use different git checkouts or git worktrees
-# to not mix code streams.
+# Makefile for Salt package updates
+# Usage: make update [DRY_RUN=1] [GIT_PUSH=1]
 
-## Public Variables
-# DEBUG - no default
-# MSG - no default
-BRANCHES ?= $(shell git branch -r | sed -e '/HEAD/d' -e 's,origin/,,')
-CODESTREAMS ?= $(shell git branch -l sle-* | tr -d '[:blank:]*')
-SALT_REPO ?= https://github.com/openSUSE/salt
-SALT_BRANCH ?= openSUSE/release/3006.0
-OBS_API ?= https://api.suse.de
-GIT_PUSH ?= 1
+SHELL := /bin/bash
+.SHELLFLAGS := -e -u -o pipefail -c
 
-## Internal Variables
-SHELL=/bin/bash
+# =============================================================================
+# Configuration - Your Development Environment
+# =============================================================================
 
-# The variable below uses the "Splitting without adding whitespace trick".
-# By default make replaces '\\n' with a single space. Using '$\\n' removes the space.
-# See `info make 'Splitting Lines'` for more information.
+# Source repository (GitHub with embedded packaging)
+GITHUB_SOURCE_GIT ?= https://github.com/ycedres/salt-1
+GITHUB_BRANCH ?= embed-packaging
 
-# comma-separated list of files to extract, expanded by the shell's Pathname expansion
-# usage: pkg/suse/{$(pkg_suse_files)}
-pkg_suse_files := README.SUSE,_multibuild,salt.spec,update-documentation.sh$\
-  ,transactional_update.conf,salt-tmpfiles.d,html.tar.bz2
+# Target package-git repository (Gitea)
+GITEA_PACKAGE_GIT ?= ygutierrez/salt
+GITEA_SERVER ?= src.opensuse.org
 
-# comma-separated list of files tracked in the package git repository, expanded
-# by the shell's Pathname expansion
-# usage: {$(git_tracked_files)}
-git_tracked_files := $(pkg_suse_files),salt,salt.changes
+# OBS projects for submission
+OBS_PROJECT ?= home:ygutierrez:branches:systemsmanagement:saltstack
+OBS_DEV_PROJECT ?= home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt
+OBS_API ?= https://api.opensuse.org
 
-# Save the used makefile to pass it to sub-make invocations later
-this_file := $(lastword $(MAKEFILE_LIST))
-sub_make_flags := -f $(this_file)
+# Target branch in package-git (factory, leap-16.1, sle-15.7, etc.)
+BRANCH ?= factory
 
-# TMPDIR is defined in the parent make process and passed to sub-make
-ifndef TMPDIR
-TMPDIR := $(shell mktemp -d)
-export TMPDIR
-endif
+# =============================================================================
+# Control flags
+# =============================================================================
 
-# Pass --no-print-directory to sub-make when DEBUG is not set
-ifndef DEBUG
-sub_make_flags += --no-print-directory
-endif
+# Set to 1 to see what would happen without actually doing it
+DRY_RUN ?= 0
 
-## "Shell Functions"
-# usage: $(SHELL) -c '$(function-name)'
+# Set to 1 to push changes to Gitea
+GIT_PUSH ?= 0
 
-define git_maybe_commit
-git add {$(git_tracked_files)}; \
-if git status --porcelain --untracked-files=no | grep -q "."; \
-then \
-	git commit --message \
-		"$$([ -n "$(MSG)" ] && echo "$(MSG)" \
-		|| echo Update to openSUSE/salt@$$(cd $$TMPDIR/salt && git rev-parse --short HEAD))" ;\
-else \
-	echo "No changes to commit" ;\
-fi
-endef
+# Set to 1 to submit to OBS
+OBS_SUBMIT ?= 0
 
-define git_maybe_push
-if (( $$(git rev-list --count @{u}..HEAD) > 0 )); \
-then \
-	git push origin ;\
-fi
-endef
+# =============================================================================
+# Working directories
+# =============================================================================
 
-## Targets
+WORK_DIR := $(shell pwd)
+TMP_DIR := $(shell mktemp -d -t salt-build-XXXXXX)
+SOURCE_DIR := $(TMP_DIR)/salt-source
+PACKAGE_DIR := $(WORK_DIR)
 
-# Update branches in $BRANCHES (default: all git branches)
+# Files to copy from pkg/suse/ in source repo
+PKG_FILES := README.SUSE _multibuild salt.spec update-documentation.sh \
+             transactional_update.conf salt-tmpfiles.d html.tar.bz2
+
+# =============================================================================
+# Targets
+# =============================================================================
+
+.PHONY: help
+help:
+	@echo "Salt Package Update Makefile"
+	@echo ""
+	@echo "Usage:"
+	@echo "  make update              # Dry-run mode (safe)"
+	@echo "  make update GIT_PUSH=1   # Update and push to Gitea"
+	@echo "  make update OBS_SUBMIT=1 # Update and submit to OBS"
+	@echo ""
+	@echo "Main targets:"
+	@echo "  update        - Full update workflow"
+	@echo "  fetch         - Fetch source from GitHub"
+	@echo "  extract       - Extract packaging files"
+	@echo "  commit        - Commit changes"
+	@echo "  push          - Push to Gitea"
+	@echo "  submit        - Submit to OBS"
+	@echo "  status        - Show current status"
+	@echo "  clean         - Clean temporary files"
+	@echo ""
+	@echo "Configuration:"
+	@echo "  GITHUB_SOURCE_GIT = $(GITHUB_SOURCE_GIT)"
+	@echo "  GITHUB_BRANCH     = $(GITHUB_BRANCH)"
+	@echo "  GITEA_PACKAGE_GIT = $(GITEA_PACKAGE_GIT)"
+	@echo "  BRANCH            = $(BRANCH)"
+	@echo "  OBS_PROJECT       = $(OBS_PROJECT)"
+	@echo ""
+	@echo "Flags:"
+	@echo "  DRY_RUN    = $(DRY_RUN)  (1=show what would happen, 0=execute)"
+	@echo "  GIT_PUSH   = $(GIT_PUSH)  (1=push to Gitea, 0=local only)"
+	@echo "  OBS_SUBMIT = $(OBS_SUBMIT)  (1=submit to OBS, 0=skip)"
+
+# Main workflow
 .PHONY: update
-update:
-	@echo "Update branches:$(patsubst %,'%', $(BRANCHES))"
-	@echo Cache salt from $(SALT_REPO)#$(SALT_BRANCH)
-	@git clone --quiet --depth 1 --branch $(SALT_BRANCH) $(SALT_REPO) $(TMPDIR)/salt
-	@$(foreach branch,$(BRANCHES),$\
-		$(MAKE) $(sub_make_flags) update-ipml BRANCH=$(branch);)
-	@rm -rf $(TMPDIR)
+update: validate fetch extract commit push
+	@echo ""
+	@echo "Update complete!"
+	@echo ""
+	@echo "Next steps:"
+	@if [ "$(GIT_PUSH)" = "0" ]; then \
+		echo "  - Review changes with: git diff HEAD~1"; \
+		echo "  - Push with: make push GIT_PUSH=1"; \
+	fi
+	@if [ "$(OBS_SUBMIT)" = "0" ]; then \
+		echo "  - Submit to OBS with: make submit OBS_SUBMIT=1"; \
+	fi
 
-.PHONY: update-ipml
-update-ipml:
-	@echo "Update branch: $(BRANCH)"
-	@git switch --quiet --force-create $(BRANCH) --track origin/$(BRANCH)
-	@cp -r $(TMPDIR)/salt .
+# Validate prerequisites
+.PHONY: validate
+validate:
+	@echo ""
+	@echo "Validating prerequisites..."
+	@command -v git >/dev/null 2>&1 || (echo "ERROR: git not found" && exit 1)
+	@command -v rsync >/dev/null 2>&1 || (echo "ERROR: rsync not found" && exit 1)
+	@if [ "$(OBS_SUBMIT)" = "1" ]; then \
+		command -v osc >/dev/null 2>&1 || (echo "ERROR: osc not found (required for OBS)" && exit 1); \
+	fi
+	@test -d .git || (echo "ERROR: Not in a git repository" && exit 1)
+	@echo "  All prerequisites met"
+
+# Fetch source from GitHub
+.PHONY: fetch
+fetch:
+	@echo ""
+	@echo "Fetching source from GitHub..."
+	@echo "  Repository: $(GITHUB_SOURCE_GIT)"
+	@echo "  Branch: $(GITHUB_BRANCH)"
+	@echo "  Target: $(SOURCE_DIR)"
+	@git clone --quiet --depth 1 --branch $(GITHUB_BRANCH) $(GITHUB_SOURCE_GIT) $(SOURCE_DIR)
+	@COMMIT_HASH=$$(cd $(SOURCE_DIR) && git rev-parse --short HEAD) && \
+		echo "  Fetched commit: $$COMMIT_HASH"
+
+# Extract packaging files from source
+.PHONY: extract
+extract:
+	@echo ""
+	@echo "Extracting packaging files..."
+	@echo "  Removing old salt/ directory..."
+	@rm -rf salt
+	@echo "  Copying salt source (without .git)..."
+	@cp -r $(SOURCE_DIR) salt
 	@rm -rf salt/.git*
-	@cp salt/pkg/suse/{$(pkg_suse_files)} .
-	@cp salt/pkg/suse/changelogs/$(BRANCH).changes salt.changes
-	@$(SHELL) -c 'TMPDIR=$(TMPDIR); $(git_maybe_commit)'
-ifeq ($(GIT_PUSH), 1)
-	@$(SHELL) -c '$(git_maybe_push)'
-endif
+	@echo "  Extracting pkg/suse/ files to root..."
+	@for file in $(PKG_FILES); do \
+		if [ -f "salt/pkg/suse/$$file" ]; then \
+			cp "salt/pkg/suse/$$file" . && echo "    [OK] $$file"; \
+		else \
+			echo "    [WARNING] salt/pkg/suse/$$file not found"; \
+		fi; \
+	done
+	@echo "  Extracting changelog for branch: $(BRANCH)"
+	@if [ -f "salt/pkg/suse/changelogs/$(BRANCH).changes" ]; then \
+		cp "salt/pkg/suse/changelogs/$(BRANCH).changes" salt.changes && \
+		echo "    [OK] salt.changes (from $(BRANCH).changes)"; \
+	else \
+		echo "    [WARNING] salt/pkg/suse/changelogs/$(BRANCH).changes not found"; \
+	fi
+	@echo "  Extraction complete"
 
-.PHONY: maintenancerequest mr
-mr: maintenancerequest
-maintenancerequest:
-	@echo "Preparing maintenancerequest for code streams:$(patsubst %, '%', $(CODESTREAMS))"
-	@$(foreach cstream,$(CODESTREAMS), $\
-		$(MAKE) $(sub_make_flags) mr-impl cstream=$(cstream);)
+# Commit changes
+.PHONY: commit
+commit:
+	@echo ""
+	@echo "Committing changes..."
+	@git add -A
+	@if git diff --cached --quiet; then \
+		echo "  [INFO] No changes to commit"; \
+	else \
+		COMMIT_HASH=$$(cd $(SOURCE_DIR) && git rev-parse --short HEAD) && \
+		COMMIT_MSG="Update to ycedres/salt-1@$$COMMIT_HASH" && \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "  [DRY RUN] Would commit with message: $$COMMIT_MSG"; \
+			git diff --cached --stat; \
+		else \
+			git commit -m "$$COMMIT_MSG" && \
+			echo "  [OK] Committed: $$COMMIT_MSG"; \
+		fi; \
+	fi
 
-.PHONY:
-mr-impl:
-	@echo "Preparing mr for: $(cstream)"
-	@git switch --quiet $(cstream)
-	@test -d $(TMPDIR)/$(cstream) || mkdir $(TMPDIR)/$(cstream)
-	@echo "cd $(TMPDIR)/$(cstream) && osc -A $(OBS_API) branch --checkout --maintenance \
-		SUSE:$(shell echo $(cstream) | sed 's/\./-SP/' | tr '[:lower:]' '[:upper:]'):Update \
-		salt "
-	@echo rsync -a --exclude=.git --exclude=Makefile . $(TMPDIR)/$(cstream)/home:*:branches:*/salt*/
-	@echo "cd $(TMPDIR)/$(cstream)/home:*:branches:*/salt*/ \
-		&& osc addremove \
-		&& osc ci -m 'Update salt' \
-		&& osc browse"
-	@echo "Please review changes and submit with \`osc mr -m 'jsc#<id>'\`"
+# Push to Gitea
+.PHONY: push
+push:
+	@echo ""
+	@echo "Pushing to Gitea..."
+	@if [ "$(GIT_PUSH)" != "1" ]; then \
+		echo "  [SKIP] Skipped (GIT_PUSH=0)"; \
+		echo "    Set GIT_PUSH=1 to push"; \
+	elif git rev-list --count @{u}..HEAD 2>/dev/null | grep -q "^0$$"; then \
+		echo "  [INFO] No commits to push"; \
+	else \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "  [DRY RUN] Would push to origin/$(BRANCH)"; \
+			git log --oneline @{u}..HEAD; \
+		else \
+			git push origin $(BRANCH) && \
+			echo "  [OK] Pushed to origin/$(BRANCH)"; \
+		fi; \
+	fi
 
-html.tar.bz2:
-	sh update-documentation.sh salt-maintainers@suse.de --without-sphinx
+# Submit to OBS
+.PHONY: submit
+submit:
+	@echo ""
+	@echo "Submitting to OBS..."
+	@if [ "$(OBS_SUBMIT)" != "1" ]; then \
+		echo "  [SKIP] Skipped (OBS_SUBMIT=0)"; \
+		echo "    Set OBS_SUBMIT=1 to submit"; \
+	else \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "  [DRY RUN] Would submit to OBS:"; \
+			echo "    Project: $(OBS_PROJECT)"; \
+			echo "    Package: salt"; \
+		else \
+			$(MAKE) --no-print-directory submit-impl; \
+		fi; \
+	fi
+
+# Internal: actual OBS submission
+.PHONY: submit-impl
+submit-impl:
+	@OBS_WORK_DIR=$(TMP_DIR)/obs && \
+	mkdir -p $$OBS_WORK_DIR && \
+	cd $$OBS_WORK_DIR && \
+	echo "  Checking out $(OBS_PROJECT)/salt from OBS..." && \
+	osc -A $(OBS_API) co $(OBS_PROJECT) salt && \
+	echo "  Syncing files..." && \
+	rsync -a --exclude=.git --exclude=Makefile* --exclude=makefiles --exclude=.osc --exclude=docs \
+		$(PACKAGE_DIR)/ $$OBS_WORK_DIR/$(OBS_PROJECT)/salt/ && \
+	cd $$OBS_WORK_DIR/$(OBS_PROJECT)/salt && \
+	osc addremove && \
+	COMMIT_HASH=$$(cd $(SOURCE_DIR) && git rev-parse --short HEAD) && \
+	COMMIT_MSG="Update to ycedres/salt-1@$$COMMIT_HASH" && \
+	echo "  Committing to OBS..." && \
+	osc ci -m "$$COMMIT_MSG" && \
+	echo "  [OK] Submitted to $(OBS_PROJECT)/salt"
+
+# Show status
+.PHONY: status
+status:
+	@echo "Current Status:"
+	@echo ""
+	@echo "Git status:"
+	@git status --short
+	@echo ""
+	@echo "Current branch:"
+	@git branch --show-current
+	@echo ""
+	@echo "Recent commits:"
+	@git log --oneline -5
+	@echo ""
+	@echo "Uncommitted changes:"
+	@git diff --stat
+
+# Clean temporary files
+.PHONY: clean
+clean:
+	@echo ""
+	@echo "Cleaning temporary files..."
+	@if [ -d "$(TMP_DIR)" ]; then \
+		rm -rf "$(TMP_DIR)" && \
+		echo "  [OK] Removed $(TMP_DIR)"; \
+	else \
+		echo "  [INFO] No temporary directory to clean"; \
+	fi
