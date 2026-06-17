@@ -35,10 +35,17 @@ commit-changes:
 	@git add -A
 	@if git status --porcelain --untracked-files=no | grep -q "."; then \
 		if [ -n "$(MSG)" ]; then \
-			git commit -m "$(MSG)"; \
+			COMMIT_MSG="$(MSG)"; \
 		else \
 			COMMIT_HASH=$$(cd $(TMPDIR)/salt && git rev-parse --short HEAD); \
-			git commit -m "Update to openSUSE/salt@$$COMMIT_HASH"; \
+			COMMIT_MSG="Update to openSUSE/salt@$$COMMIT_HASH"; \
+		fi; \
+		if [ "$(DRY_RUN)" = "1" ]; then \
+			echo "[DRY RUN] Would commit with message: $$COMMIT_MSG"; \
+			git diff --cached --stat; \
+		else \
+			git commit -m "$$COMMIT_MSG" && \
+			echo "[OK] Committed: $$COMMIT_MSG"; \
 		fi; \
 	fi
 
