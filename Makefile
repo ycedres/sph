@@ -206,7 +206,7 @@ submit:
 			echo "    Project: $(OBS_PROJECT)"; \
 			echo "    Package: salt"; \
 		else \
-			$(MAKE) --no-print-directory submit-impl; \
+			$(MAKE) --no-print-directory submit-impl TMP_DIR="$(TMP_DIR)"; \
 		fi; \
 	fi
 
