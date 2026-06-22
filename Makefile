@@ -192,25 +192,35 @@ push:
 		fi; \
 	fi
 
-# Submit to OBS
+# Submit to OBS or create PR
 .PHONY: submit
 submit:
 	@echo ""
-	@echo "Submitting to OBS..."
+	@if echo "$(BRANCH)" | grep -q "leap"; then \
+		echo "Submitting via git-obs (Leap branch detected)..."; \
+	else \
+		echo "Submitting to OBS (factory branch)..."; \
+	fi
 	@if [ "$(OBS_SUBMIT)" != "1" ]; then \
 		echo "  [SKIP] Skipped (OBS_SUBMIT=0)"; \
 		echo "    Set OBS_SUBMIT=1 to submit"; \
 	else \
 		if [ "$(DRY_RUN)" = "1" ]; then \
-			echo "  [DRY RUN] Would submit to OBS:"; \
-			echo "    Project: $(OBS_PROJECT)"; \
-			echo "    Package: salt"; \
+			if echo "$(BRANCH)" | grep -q "leap"; then \
+				echo "  [DRY RUN] Would create PR via git-obs:"; \
+				echo "    Source: $(OBS_PROJECT)/salt"; \
+				echo "    Target: $(OBS_DEV_PROJECT)"; \
+			else \
+				echo "  [DRY RUN] Would submit request to OBS:"; \
+				echo "    Source: $(OBS_PROJECT)/salt"; \
+				echo "    Target: systemsmanagement:saltstack/salt"; \
+			fi; \
 		else \
 			$(MAKE) --no-print-directory submit-impl TMP_DIR="$(TMP_DIR)"; \
 		fi; \
 	fi
 
-# Internal: actual OBS submission
+# Internal: actual OBS submission or PR creation
 .PHONY: submit-impl
 submit-impl:
 	@OBS_WORK_DIR=$(TMP_DIR)/obs && \
@@ -227,7 +237,31 @@ submit-impl:
 	COMMIT_MSG="Update to ycedres/salt-1@$$COMMIT_HASH" && \
 	echo "  Committing to OBS..." && \
 	osc ci -m "$$COMMIT_MSG" && \
-	echo "  [OK] Submitted to $(OBS_PROJECT)/salt"
+	if echo "$(BRANCH)" | grep -q "leap"; then \
+		echo "  Creating PR via git-obs..." && \
+		PR_OUTPUT=$$(git-obs pr create $(OBS_DEV_PROJECT) 2>&1) && \
+		PR_ID=$$(echo "$$PR_OUTPUT" | grep -oP 'PR #\K[0-9]+' || echo "$$PR_OUTPUT" | grep -oP '#\K[0-9]+') && \
+		if [ -n "$$PR_ID" ]; then \
+			echo "  [OK] PR created: #$$PR_ID"; \
+			echo ""; \
+			echo "PR ID: $$PR_ID"; \
+		else \
+			echo "  [OK] PR created (ID not parsed)"; \
+			echo "$$PR_OUTPUT"; \
+		fi; \
+	else \
+		echo "  Creating submit request..." && \
+		SR_OUTPUT=$$(osc -A $(OBS_API) sr -m "$$COMMIT_MSG" systemsmanagement:saltstack salt 2>&1) && \
+		SR_ID=$$(echo "$$SR_OUTPUT" | grep -oP 'created request id \K[0-9]+') && \
+		if [ -n "$$SR_ID" ]; then \
+			echo "  [OK] Submit request created: #$$SR_ID"; \
+			echo ""; \
+			echo "Request ID: $$SR_ID"; \
+		else \
+			echo "  [OK] Submit request created (ID not parsed)"; \
+			echo "$$SR_OUTPUT"; \
+		fi; \
+	fi
 
 # Show status
 .PHONY: status
