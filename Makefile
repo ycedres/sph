@@ -17,8 +17,8 @@ GITEA_PACKAGE_GIT ?= ygutierrez/salt
 GITEA_SERVER ?= src.opensuse.org
 
 # OBS projects for submission
-OBS_PROJECT ?= home:ygutierrez:branches:systemsmanagement:saltstack
 OBS_DEV_PROJECT ?= home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt
+OBS_TARGET_PROJECT ?= home:ygutierrez:branches:systemsmanagement:saltstack
 OBS_API ?= https://api.opensuse.org
 
 # Gitea token for git-obs (Leap branches)
@@ -77,18 +77,18 @@ help:
 	@echo "  clean         - Clean temporary files"
 	@echo ""
 	@echo "Configuration:"
-	@echo "  GITHUB_SOURCE_GIT = $(GITHUB_SOURCE_GIT)"
-	@echo "  GITHUB_BRANCH     = $(GITHUB_BRANCH)"
-	@echo "  GITEA_PACKAGE_GIT = $(GITEA_PACKAGE_GIT)"
-	@echo "  BRANCH            = $(BRANCH)"
-	@echo "  OBS_PROJECT       = $(OBS_PROJECT)"
-	@echo "  OBS_DEV_PROJECT   = $(OBS_DEV_PROJECT)"
+	@echo "  GITHUB_SOURCE_GIT   = $(GITHUB_SOURCE_GIT)"
+	@echo "  GITHUB_BRANCH       = $(GITHUB_BRANCH)"
+	@echo "  GITEA_PACKAGE_GIT   = $(GITEA_PACKAGE_GIT)"
+	@echo "  BRANCH              = $(BRANCH)"
+	@echo "  OBS_DEV_PROJECT     = $(OBS_DEV_PROJECT)"
+	@echo "  OBS_TARGET_PROJECT  = $(OBS_TARGET_PROJECT)"
 	@echo ""
 	@echo "Submission method:"
 	@if echo "$(BRANCH)" | grep -qi "leap"; then \
-		echo "  Leap branch → git-obs PR from $(OBS_DEV_PROJECT) to $(OBS_PROJECT)"; \
+		echo "  Leap branch → git-obs PR from $(OBS_DEV_PROJECT) to $(OBS_TARGET_PROJECT)"; \
 	else \
-		echo "  Factory branch → OBS SR from $(OBS_DEV_PROJECT) to $(OBS_PROJECT)"; \
+		echo "  Factory branch → OBS SR from $(OBS_DEV_PROJECT) to $(OBS_TARGET_PROJECT)"; \
 	fi
 	@echo ""
 	@echo "Flags:"
@@ -217,7 +217,7 @@ submit:
 				TMP_DIR="$(TMP_DIR)" \
 				SOURCE_DIR="$(SOURCE_DIR)" \
 				PACKAGE_DIR="$(PACKAGE_DIR)" \
-				OBS_PROJECT="$(OBS_PROJECT)" \
+				OBS_TARGET_PROJECT="$(OBS_TARGET_PROJECT)" \
 				OBS_DEV_PROJECT="$(OBS_DEV_PROJECT)" \
 				OBS_API="$(OBS_API)" \
 				GITEA_TOKEN="$(GITEA_TOKEN)" \
@@ -228,7 +228,7 @@ submit:
 				TMP_DIR="$(TMP_DIR)" \
 				SOURCE_DIR="$(SOURCE_DIR)" \
 				PACKAGE_DIR="$(PACKAGE_DIR)" \
-				OBS_PROJECT="$(OBS_PROJECT)" \
+				OBS_TARGET_PROJECT="$(OBS_TARGET_PROJECT)" \
 				OBS_DEV_PROJECT="$(OBS_DEV_PROJECT)" \
 				OBS_API="$(OBS_API)" \
 				DRY_RUN="$(DRY_RUN)"; \
