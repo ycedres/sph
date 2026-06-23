@@ -198,12 +198,9 @@ push:
 	@if [ "$(GIT_PUSH)" != "1" ]; then \
 		echo "  [SKIP] Skipped (GIT_PUSH=0)"; \
 		echo "    Set GIT_PUSH=1 to push"; \
-	elif git rev-list --count @{u}..HEAD 2>/dev/null | grep -q "^0$$"; then \
-		echo "  [INFO] No commits to push"; \
 	else \
 		if [ "$(DRY_RUN)" = "1" ]; then \
 			echo "  [DRY RUN] Would push to origin/$(BRANCH)"; \
-			git log --oneline @{u}..HEAD; \
 		else \
 			git push origin $(BRANCH) && \
 			echo "  [OK] Pushed to origin/$(BRANCH)"; \
