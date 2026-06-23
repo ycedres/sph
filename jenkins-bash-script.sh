@@ -16,13 +16,14 @@ MAKEFILES_BRANCH="${MAKEFILES_BRANCH:-main}"
 
 # Your development branches
 GITEA_PACKAGE_GIT="${GITEA_PACKAGE_GIT:-ygutierrez/salt}"
+GITEA_TARGET_REPO="${GITEA_TARGET_REPO:-ygutierrez/salt_salt}"
 GITEA_SERVER="${GITEA_SERVER:-src.opensuse.org}"
 
 GITHUB_SOURCE_GIT="${GITHUB_SOURCE_GIT:-https://github.com/ycedres/salt-1}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-embed-packaging}"
 
 OBS_DEV_PROJECT="${OBS_DEV_PROJECT:-home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt}"
-OBS_PROJECT="${OBS_PROJECT:-home:ygutierrez:branches:systemsmanagement:saltstack}"
+OBS_TARGET_PROJECT="${OBS_TARGET_PROJECT:-home:ygutierrez:branches:systemsmanagement:saltstack}"
 OBS_API="${OBS_API:-https://api.opensuse.org}"
 
 # Target branch in package-git
@@ -46,6 +47,23 @@ if [ -z "$GITEA_TOKEN" ]; then
 fi
 
 # =============================================================================
+# Test Gitea token
+# =============================================================================
+
+echo "Testing Gitea token validity..."
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: token $GITEA_TOKEN" \
+    "https://${GITEA_SERVER}/api/v1/user" || echo "000")
+
+if [ "$HTTP_STATUS" = "200" ]; then
+    echo "  [OK] Gitea token is valid and authenticated."
+else
+    echo "  [ERROR] Gitea token is invalid or unauthorized (HTTP Status: $HTTP_STATUS)"
+    echo "  Verify your token is correct in ~/.netrc and has repository/write scope."
+    exit 1
+fi
+
+# =============================================================================
 # Print configuration
 # =============================================================================
 
@@ -61,11 +79,13 @@ echo "  GitHub: $GITHUB_SOURCE_GIT"
 echo "  Branch: $GITHUB_BRANCH"
 echo ""
 echo "Target:"
-echo "  Gitea: $GITEA_SERVER/$GITEA_PACKAGE_GIT"
+echo "  Gitea Source: $GITEA_SERVER/$GITEA_PACKAGE_GIT"
+echo "  Gitea Target: $GITEA_SERVER/$GITEA_TARGET_REPO"
 echo "  Branch: $BRANCH"
 echo ""
 echo "OBS:"
-echo "  Project: $OBS_PROJECT"
+echo "  Dev Project:    $OBS_DEV_PROJECT"
+echo "  Target Project: $OBS_TARGET_PROJECT"
 echo ""
 echo "Flags:"
 echo "  DRY_RUN:    $DRY_RUN"
@@ -140,12 +160,17 @@ echo "Running update workflow..."
 echo "=========================================="
 echo ""
 
-make update \
+make update submit \
     GITHUB_SOURCE_GIT="$GITHUB_SOURCE_GIT" \
     GITHUB_BRANCH="$GITHUB_BRANCH" \
+    GITEA_PACKAGE_GIT="$GITEA_PACKAGE_GIT" \
+    GITEA_TARGET_REPO="$GITEA_TARGET_REPO" \
+    GITEA_SERVER="$GITEA_SERVER" \
     BRANCH="$BRANCH" \
-    OBS_PROJECT="$OBS_PROJECT" \
+    OBS_DEV_PROJECT="$OBS_DEV_PROJECT" \
+    OBS_TARGET_PROJECT="$OBS_TARGET_PROJECT" \
     OBS_API="$OBS_API" \
+    GITEA_TOKEN="$GITEA_TOKEN" \
     DRY_RUN="$DRY_RUN" \
     GIT_PUSH="$GIT_PUSH" \
     OBS_SUBMIT="$OBS_SUBMIT"

@@ -14,6 +14,7 @@ GITHUB_BRANCH ?= embed-packaging
 
 # Target package-git repository (Gitea)
 GITEA_PACKAGE_GIT ?= ygutierrez/salt
+GITEA_TARGET_REPO ?= ygutierrez/salt_salt
 GITEA_SERVER ?= src.opensuse.org
 
 # OBS projects for submission
@@ -80,13 +81,14 @@ help:
 	@echo "  GITHUB_SOURCE_GIT   = $(GITHUB_SOURCE_GIT)"
 	@echo "  GITHUB_BRANCH       = $(GITHUB_BRANCH)"
 	@echo "  GITEA_PACKAGE_GIT   = $(GITEA_PACKAGE_GIT)"
+	@echo "  GITEA_TARGET_REPO   = $(GITEA_TARGET_REPO)"
 	@echo "  BRANCH              = $(BRANCH)"
 	@echo "  OBS_DEV_PROJECT     = $(OBS_DEV_PROJECT)"
 	@echo "  OBS_TARGET_PROJECT  = $(OBS_TARGET_PROJECT)"
 	@echo ""
 	@echo "Submission method:"
 	@if echo "$(BRANCH)" | grep -qi "leap"; then \
-		echo "  Leap branch → git-obs PR from $(OBS_DEV_PROJECT) to $(OBS_TARGET_PROJECT)"; \
+		echo "  Leap branch → Gitea PR from $(GITEA_PACKAGE_GIT) to $(GITEA_TARGET_REPO)"; \
 	else \
 		echo "  Factory branch → OBS SR from $(OBS_DEV_PROJECT) to $(OBS_TARGET_PROJECT)"; \
 	fi
@@ -119,7 +121,11 @@ validate:
 	@command -v git >/dev/null 2>&1 || (echo "ERROR: git not found" && exit 1)
 	@command -v rsync >/dev/null 2>&1 || (echo "ERROR: rsync not found" && exit 1)
 	@if [ "$(OBS_SUBMIT)" = "1" ]; then \
-		command -v osc >/dev/null 2>&1 || (echo "ERROR: osc not found (required for OBS)" && exit 1); \
+		if echo "$(BRANCH)" | grep -qi "leap"; then \
+			command -v git-obs >/dev/null 2>&1 || (echo "ERROR: git-obs not found (required for Leap PRs)" && exit 1); \
+		else \
+			command -v osc >/dev/null 2>&1 || (echo "ERROR: osc not found (required for Factory SRs)" && exit 1); \
+		fi; \
 	fi
 	@test -d .git || (echo "ERROR: Not in a git repository" && exit 1)
 	@echo "  All prerequisites met"
@@ -212,15 +218,14 @@ submit:
 		echo "    Set OBS_SUBMIT=1 to submit"; \
 	else \
 		if echo "$(BRANCH)" | grep -qi "leap"; then \
-			echo "Submitting via git-obs (Leap branch detected)..."; \
+			echo "Creating Gitea PR (Leap branch detected)..."; \
 			$(MAKE) --no-print-directory -f makefiles/leap-submit.mk submit-leap \
-				TMP_DIR="$(TMP_DIR)" \
 				SOURCE_DIR="$(SOURCE_DIR)" \
-				PACKAGE_DIR="$(PACKAGE_DIR)" \
-				OBS_TARGET_PROJECT="$(OBS_TARGET_PROJECT)" \
-				OBS_DEV_PROJECT="$(OBS_DEV_PROJECT)" \
-				OBS_API="$(OBS_API)" \
+				GITEA_PACKAGE_GIT="$(GITEA_PACKAGE_GIT)" \
+				GITEA_TARGET_REPO="$(GITEA_TARGET_REPO)" \
+				GITEA_SERVER="$(GITEA_SERVER)" \
 				GITEA_TOKEN="$(GITEA_TOKEN)" \
+				BRANCH="$(BRANCH)" \
 				DRY_RUN="$(DRY_RUN)"; \
 		else \
 			echo "Submitting to OBS (factory branch)..."; \
