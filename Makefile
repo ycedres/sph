@@ -21,6 +21,9 @@ OBS_PROJECT ?= home:ygutierrez:branches:systemsmanagement:saltstack
 OBS_DEV_PROJECT ?= home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt
 OBS_API ?= https://api.opensuse.org
 
+# Gitea token for git-obs (Leap branches)
+GITEA_TOKEN ?=
+
 # Target branch in package-git (factory, leap-16.1, sle-15.7, etc.)
 BRANCH ?= factory
 
@@ -79,6 +82,14 @@ help:
 	@echo "  GITEA_PACKAGE_GIT = $(GITEA_PACKAGE_GIT)"
 	@echo "  BRANCH            = $(BRANCH)"
 	@echo "  OBS_PROJECT       = $(OBS_PROJECT)"
+	@echo "  OBS_DEV_PROJECT   = $(OBS_DEV_PROJECT)"
+	@echo ""
+	@echo "Submission method:"
+	@if echo "$(BRANCH)" | grep -qi "leap"; then \
+		echo "  Leap branch → git-obs PR from $(OBS_DEV_PROJECT) to $(OBS_PROJECT)"; \
+	else \
+		echo "  Factory branch → OBS SR from $(OBS_DEV_PROJECT) to $(OBS_PROJECT)"; \
+	fi
 	@echo ""
 	@echo "Flags:"
 	@echo "  DRY_RUN    = $(DRY_RUN)  (1=show what would happen, 0=execute)"
@@ -192,74 +203,35 @@ push:
 		fi; \
 	fi
 
-# Submit to OBS or create PR
+# Submit to OBS or create PR (delegated to branch-specific makefiles)
 .PHONY: submit
 submit:
 	@echo ""
-	@if echo "$(BRANCH)" | grep -q "leap"; then \
-		echo "Submitting via git-obs (Leap branch detected)..."; \
-	else \
-		echo "Submitting to OBS (factory branch)..."; \
-	fi
 	@if [ "$(OBS_SUBMIT)" != "1" ]; then \
 		echo "  [SKIP] Skipped (OBS_SUBMIT=0)"; \
 		echo "    Set OBS_SUBMIT=1 to submit"; \
 	else \
-		if [ "$(DRY_RUN)" = "1" ]; then \
-			if echo "$(BRANCH)" | grep -q "leap"; then \
-				echo "  [DRY RUN] Would create PR via git-obs:"; \
-				echo "    Source: $(OBS_PROJECT)/salt"; \
-				echo "    Target: $(OBS_DEV_PROJECT)"; \
-			else \
-				echo "  [DRY RUN] Would submit request to OBS:"; \
-				echo "    Source: $(OBS_PROJECT)/salt"; \
-				echo "    Target: systemsmanagement:saltstack/salt"; \
-			fi; \
+		if echo "$(BRANCH)" | grep -qi "leap"; then \
+			echo "Submitting via git-obs (Leap branch detected)..."; \
+			$(MAKE) --no-print-directory -f makefiles/leap-submit.mk submit-leap \
+				TMP_DIR="$(TMP_DIR)" \
+				SOURCE_DIR="$(SOURCE_DIR)" \
+				PACKAGE_DIR="$(PACKAGE_DIR)" \
+				OBS_PROJECT="$(OBS_PROJECT)" \
+				OBS_DEV_PROJECT="$(OBS_DEV_PROJECT)" \
+				OBS_API="$(OBS_API)" \
+				GITEA_TOKEN="$(GITEA_TOKEN)" \
+				DRY_RUN="$(DRY_RUN)"; \
 		else \
-			$(MAKE) --no-print-directory submit-impl TMP_DIR="$(TMP_DIR)"; \
-		fi; \
-	fi
-
-# Internal: actual OBS submission or PR creation
-.PHONY: submit-impl
-submit-impl:
-	@OBS_WORK_DIR=$(TMP_DIR)/obs && \
-	mkdir -p $$OBS_WORK_DIR && \
-	cd $$OBS_WORK_DIR && \
-	echo "  Checking out $(OBS_PROJECT)/salt from OBS..." && \
-	osc -A $(OBS_API) co $(OBS_PROJECT) salt && \
-	echo "  Syncing files..." && \
-	rsync -a --exclude=.git --exclude=Makefile* --exclude=makefiles --exclude=.osc --exclude=docs \
-		$(PACKAGE_DIR)/ $$OBS_WORK_DIR/$(OBS_PROJECT)/salt/ && \
-	cd $$OBS_WORK_DIR/$(OBS_PROJECT)/salt && \
-	osc addremove && \
-	COMMIT_HASH=$$(cd $(SOURCE_DIR) && git rev-parse --short HEAD) && \
-	COMMIT_MSG="Update to ycedres/salt-1@$$COMMIT_HASH" && \
-	echo "  Committing to OBS..." && \
-	osc ci -m "$$COMMIT_MSG" && \
-	if echo "$(BRANCH)" | grep -q "leap"; then \
-		echo "  Creating PR via git-obs..." && \
-		PR_OUTPUT=$$(git-obs pr create $(OBS_DEV_PROJECT) 2>&1) && \
-		PR_ID=$$(echo "$$PR_OUTPUT" | grep -oP 'PR #\K[0-9]+' || echo "$$PR_OUTPUT" | grep -oP '#\K[0-9]+') && \
-		if [ -n "$$PR_ID" ]; then \
-			echo "  [OK] PR created: #$$PR_ID"; \
-			echo ""; \
-			echo "PR ID: $$PR_ID"; \
-		else \
-			echo "  [OK] PR created (ID not parsed)"; \
-			echo "$$PR_OUTPUT"; \
-		fi; \
-	else \
-		echo "  Creating submit request..." && \
-		SR_OUTPUT=$$(osc -A $(OBS_API) sr -m "$$COMMIT_MSG" systemsmanagement:saltstack salt 2>&1) && \
-		SR_ID=$$(echo "$$SR_OUTPUT" | grep -oP 'created request id \K[0-9]+') && \
-		if [ -n "$$SR_ID" ]; then \
-			echo "  [OK] Submit request created: #$$SR_ID"; \
-			echo ""; \
-			echo "Request ID: $$SR_ID"; \
-		else \
-			echo "  [OK] Submit request created (ID not parsed)"; \
-			echo "$$SR_OUTPUT"; \
+			echo "Submitting to OBS (factory branch)..."; \
+			$(MAKE) --no-print-directory -f makefiles/factory-submit.mk submit-factory \
+				TMP_DIR="$(TMP_DIR)" \
+				SOURCE_DIR="$(SOURCE_DIR)" \
+				PACKAGE_DIR="$(PACKAGE_DIR)" \
+				OBS_PROJECT="$(OBS_PROJECT)" \
+				OBS_DEV_PROJECT="$(OBS_DEV_PROJECT)" \
+				OBS_API="$(OBS_API)" \
+				DRY_RUN="$(DRY_RUN)"; \
 		fi; \
 	fi
 
