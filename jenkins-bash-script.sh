@@ -7,6 +7,23 @@ set -u  # Exit on undefined variable
 set -o pipefail
 
 # =============================================================================
+# Parameter: Target Branch
+# Eventually read from a pipeline selector, or override here.
+# Supported branches:
+#   - factory    (sr)
+#   - leap16.1   (pr)
+#   - Leap16.1   (pr)
+#   - leap16.0   (pr)
+#   - Leap16.0   (pr)
+#   - slfo-main  (sr)
+#   - slfo-1.2   (sr)
+# =============================================================================
+BRANCH="${BRANCH:-factory}"
+
+# GitHub branch defaults to match the target branch (can be overridden)
+GITHUB_BRANCH="${GITHUB_BRANCH:-$BRANCH}"
+
+# =============================================================================
 # Configuration - Development Environment
 # =============================================================================
 
@@ -24,12 +41,6 @@ GITHUB_SOURCE_GIT="${GITHUB_SOURCE_GIT:-https://github.com/ycedres/salt-1}"
 OBS_DEV_PROJECT="${OBS_DEV_PROJECT:-home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt}"
 OBS_TARGET_PROJECT="${OBS_TARGET_PROJECT:-home:ygutierrez:branches:systemsmanagement:saltstack}"
 OBS_API="${OBS_API:-https://api.opensuse.org}"
-
-# Target branch in package-git
-BRANCH="${BRANCH:-factory}"
-
-# GitHub branch defaults to match the target branch (can be overridden)
-GITHUB_BRANCH="${GITHUB_BRANCH:-$BRANCH}"
 
 # Control flags
 DRY_RUN="${DRY_RUN:-1}"      # Default to dry-run for safety

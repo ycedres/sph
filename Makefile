@@ -89,9 +89,9 @@ help:
 	@echo ""
 	@echo "Submission method:"
 	@if echo "$(BRANCH)" | grep -qi "leap"; then \
-		echo "  Leap branch → Gitea PR from $(GITEA_PACKAGE_GIT) to $(GITEA_TARGET_REPO)"; \
+		echo "  PR branch (Leap) → Gitea PR from $(GITEA_PACKAGE_GIT) to $(GITEA_TARGET_REPO)"; \
 	else \
-		echo "  Factory branch → OBS SR from $(OBS_DEV_PROJECT) to $(OBS_TARGET_PROJECT)"; \
+		echo "  SR branch (Factory/SLFO) → OBS SR from $(OBS_DEV_PROJECT) to $(OBS_TARGET_PROJECT)"; \
 	fi
 	@echo ""
 	@echo "Flags:"
@@ -123,9 +123,9 @@ validate:
 	@command -v rsync >/dev/null 2>&1 || (echo "ERROR: rsync not found" && exit 1)
 	@if [ "$(OBS_SUBMIT)" = "1" ]; then \
 		if echo "$(BRANCH)" | grep -qi "leap"; then \
-			command -v git-obs >/dev/null 2>&1 || (echo "ERROR: git-obs not found (required for Leap PRs)" && exit 1); \
+			command -v git-obs >/dev/null 2>&1 || (echo "ERROR: git-obs not found (required for Gitea PRs)" && exit 1); \
 		else \
-			command -v osc >/dev/null 2>&1 || (echo "ERROR: osc not found (required for Factory SRs)" && exit 1); \
+			command -v osc >/dev/null 2>&1 || (echo "ERROR: osc not found (required for OBS SRs)" && exit 1); \
 		fi; \
 	fi
 	@test -d .git || (echo "ERROR: Not in a git repository" && exit 1)
@@ -219,7 +219,7 @@ submit:
 		echo "    Set OBS_SUBMIT=1 to submit"; \
 	else \
 		if echo "$(BRANCH)" | grep -qi "leap"; then \
-			echo "Creating Gitea PR (Leap branch detected)..."; \
+			echo "Creating Gitea PR (PR branch detected)..."; \
 			$(MAKE) --no-print-directory -f makefiles/leap-submit.mk submit-leap \
 				SOURCE_DIR="$(SOURCE_DIR)" \
 				GITEA_PACKAGE_GIT="$(GITEA_PACKAGE_GIT)" \
@@ -229,7 +229,7 @@ submit:
 				BRANCH="$(BRANCH)" \
 				DRY_RUN="$(DRY_RUN)"; \
 		else \
-			echo "Submitting to OBS (factory branch)..."; \
+			echo "Submitting to OBS (SR branch detected)..."; \
 			$(MAKE) --no-print-directory -f makefiles/factory-submit.mk submit-factory \
 				TMP_DIR="$(TMP_DIR)" \
 				SOURCE_DIR="$(SOURCE_DIR)" \
