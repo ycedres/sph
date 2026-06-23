@@ -20,7 +20,6 @@ GITEA_TARGET_REPO="${GITEA_TARGET_REPO:-ygutierrez/salt_salt}"
 GITEA_SERVER="${GITEA_SERVER:-src.opensuse.org}"
 
 GITHUB_SOURCE_GIT="${GITHUB_SOURCE_GIT:-https://github.com/ycedres/salt-1}"
-GITHUB_BRANCH="${GITHUB_BRANCH:-embed-packaging}"
 
 OBS_DEV_PROJECT="${OBS_DEV_PROJECT:-home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt}"
 OBS_TARGET_PROJECT="${OBS_TARGET_PROJECT:-home:ygutierrez:branches:systemsmanagement:saltstack}"
@@ -28,6 +27,9 @@ OBS_API="${OBS_API:-https://api.opensuse.org}"
 
 # Target branch in package-git
 BRANCH="${BRANCH:-factory}"
+
+# GitHub branch defaults to match the target branch (can be overridden)
+GITHUB_BRANCH="${GITHUB_BRANCH:-$BRANCH}"
 
 # Control flags
 DRY_RUN="${DRY_RUN:-1}"      # Default to dry-run for safety

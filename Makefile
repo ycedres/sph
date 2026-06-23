@@ -10,7 +10,8 @@ SHELL := /bin/bash
 
 # Source repository (GitHub with embedded packaging)
 GITHUB_SOURCE_GIT ?= https://github.com/ycedres/salt-1
-GITHUB_BRANCH ?= embed-packaging
+# GitHub branch defaults to match the target branch
+GITHUB_BRANCH ?= $(BRANCH)
 
 # Target package-git repository (Gitea)
 GITEA_PACKAGE_GIT ?= ygutierrez/salt
