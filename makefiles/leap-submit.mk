@@ -40,6 +40,7 @@ submit-leap:
 		fi; \
 		TARGET_BRANCH_ID="$(GITEA_TARGET_REPO):$(BRANCH)"; \
 		echo "  DEBUG: Running git-obs pr create with target: $$TARGET_BRANCH_ID"; \
+		echo "  DEBUG: Command: git-obs -G opensuse pr create --target \"$$TARGET_BRANCH_ID\" --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
 		if PR_OUTPUT=$$(git-obs -G opensuse pr create \
 			--target "$$TARGET_BRANCH_ID" \
 			--title "$$PR_TITLE" \
