@@ -26,26 +26,22 @@ submit-leap:
 		COMMIT_HASH=$$(cd $(SOURCE_DIR) && git rev-parse --short HEAD); \
 		PR_TITLE="Update $(BRANCH) to ycedres/salt-1@$$COMMIT_HASH"; \
 		PR_DESCRIPTION="Automated update from GitHub ycedres/salt-1 repository."; \
-		SOURCE_OWNER=$$(echo "$(GITEA_PACKAGE_GIT)" | cut -d'/' -f1); \
-		SOURCE_REPO=$$(echo "$(GITEA_PACKAGE_GIT)" | cut -d'/' -f2); \
-		TARGET_OWNER=$$(echo "$(GITEA_TARGET_REPO)" | cut -d'/' -f1); \
-		TARGET_REPO=$$(echo "$(GITEA_TARGET_REPO)" | cut -d'/' -f2); \
 		echo "  Creating Gitea PR via git-obs..."; \
 		echo "    Title: $$PR_TITLE"; \
 		echo "    From: $(GITEA_PACKAGE_GIT):$(BRANCH)"; \
 		echo "    To:   $(GITEA_TARGET_REPO):$(BRANCH)"; \
-		echo "  DEBUG: Running git-obs command..."; \
-		echo "  DEBUG: Server: https://$(GITEA_SERVER)"; \
-		echo "  DEBUG: Source: $$SOURCE_OWNER/$$SOURCE_REPO:$(BRANCH)"; \
-		echo "  DEBUG: Target: $$TARGET_OWNER/$$TARGET_REPO:$(BRANCH)"; \
-		if PR_OUTPUT=$$(GITEA_TOKEN=$(GITEA_TOKEN) GITEA_SERVER_URL=https://$(GITEA_SERVER) git-obs pr create \
-			--api-url "https://$(GITEA_SERVER)" \
-			--source-owner "$$SOURCE_OWNER" \
-			--source-repo "$$SOURCE_REPO" \
-			--source-branch "$(BRANCH)" \
-			--target-owner "$$TARGET_OWNER" \
-			--target-repo "$$TARGET_REPO" \
-			--target-branch "$(BRANCH)" \
+		echo "  DEBUG: Setting up git-obs login..."; \
+		if ! git-obs login list | grep -q "src.opensuse.org"; then \
+			echo "  DEBUG: Adding git-obs login entry..."; \
+			GITEA_TOKEN=$(GITEA_TOKEN) git-obs login add opensuse \
+				--url https://$(GITEA_SERVER) \
+				--token "$(GITEA_TOKEN)" \
+				--set-as-default >/dev/null 2>&1 || true; \
+		fi; \
+		TARGET_BRANCH_ID="$(GITEA_TARGET_REPO):$(BRANCH)"; \
+		echo "  DEBUG: Running git-obs pr create with target: $$TARGET_BRANCH_ID"; \
+		if PR_OUTPUT=$$(git-obs -G opensuse pr create \
+			--target "$$TARGET_BRANCH_ID" \
 			--title "$$PR_TITLE" \
 			--description "$$PR_DESCRIPTION" 2>&1); then \
 			echo "  DEBUG: git-obs succeeded"; \
