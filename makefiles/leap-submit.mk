@@ -31,9 +31,10 @@ submit-leap:
 		echo "    From: $(GITEA_PACKAGE_GIT):$(BRANCH)"; \
 		echo "    To:   $(GITEA_TARGET_REPO):$(BRANCH)"; \
 		echo "  DEBUG: Running git-obs command..."; \
-		echo "  DEBUG: git-obs -q -G [TOKEN] pr create --target-repo $(GITEA_TARGET_REPO) --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
-		if PR_OUTPUT=$$(git-obs -q -G $(GITEA_TOKEN) pr create \
-			--target-repo $(GITEA_TARGET_REPO) \
+		echo "  DEBUG: GITEA_TOKEN=[HIDDEN] git-obs pr create --source $(GITEA_PACKAGE_GIT) --target $(GITEA_TARGET_REPO) --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
+		if PR_OUTPUT=$$(GITEA_TOKEN=$(GITEA_TOKEN) git-obs pr create \
+			--source $(GITEA_PACKAGE_GIT) \
+			--target $(GITEA_TARGET_REPO) \
 			--title "$$PR_TITLE" \
 			--description "$$PR_DESCRIPTION" 2>&1); then \
 			echo "  DEBUG: git-obs succeeded"; \
