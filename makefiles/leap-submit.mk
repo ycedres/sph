@@ -26,17 +26,24 @@ submit-leap:
 		COMMIT_HASH=$$(cd $(SOURCE_DIR) && git rev-parse --short HEAD); \
 		PR_TITLE="Update $(BRANCH) to ycedres/salt-1@$$COMMIT_HASH"; \
 		PR_DESCRIPTION="Automated update from GitHub ycedres/salt-1 repository."; \
+		SOURCE_OWNER=$$(echo "$(GITEA_PACKAGE_GIT)" | cut -d'/' -f1); \
+		SOURCE_REPO=$$(echo "$(GITEA_PACKAGE_GIT)" | cut -d'/' -f2); \
+		TARGET_OWNER=$$(echo "$(GITEA_TARGET_REPO)" | cut -d'/' -f1); \
+		TARGET_REPO=$$(echo "$(GITEA_TARGET_REPO)" | cut -d'/' -f2); \
 		echo "  Creating Gitea PR via git-obs..."; \
 		echo "    Title: $$PR_TITLE"; \
 		echo "    From: $(GITEA_PACKAGE_GIT):$(BRANCH)"; \
 		echo "    To:   $(GITEA_TARGET_REPO):$(BRANCH)"; \
 		echo "  DEBUG: Running git-obs command..."; \
-		echo "  DEBUG: GITEA_TOKEN=[HIDDEN] git-obs pr create --source-repo $(GITEA_PACKAGE_GIT) --source-branch $(BRANCH) --target-repo $(GITEA_TARGET_REPO) --target-branch $(BRANCH) --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
+		echo "  DEBUG: Source: $$SOURCE_OWNER/$$SOURCE_REPO:$(BRANCH)"; \
+		echo "  DEBUG: Target: $$TARGET_OWNER/$$TARGET_REPO:$(BRANCH)"; \
 		if PR_OUTPUT=$$(GITEA_TOKEN=$(GITEA_TOKEN) git-obs pr create \
-			--source-repo $(GITEA_PACKAGE_GIT) \
-			--source-branch $(BRANCH) \
-			--target-repo $(GITEA_TARGET_REPO) \
-			--target-branch $(BRANCH) \
+			--source-owner "$$SOURCE_OWNER" \
+			--source-repo "$$SOURCE_REPO" \
+			--source-branch "$(BRANCH)" \
+			--target-owner "$$TARGET_OWNER" \
+			--target-repo "$$TARGET_REPO" \
+			--target-branch "$(BRANCH)" \
 			--title "$$PR_TITLE" \
 			--description "$$PR_DESCRIPTION" 2>&1); then \
 			echo "  DEBUG: git-obs succeeded"; \

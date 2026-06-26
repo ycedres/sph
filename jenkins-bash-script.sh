@@ -31,7 +31,6 @@ GITHUB_BRANCH="${GITHUB_BRANCH:-$BRANCH}"
 MAKEFILES_REPO="${MAKEFILES_REPO:-https://github.com/ycedres/sph.git}"
 MAKEFILES_BRANCH="${MAKEFILES_BRANCH:-main}"
 
-# Your development branches
 GITEA_PACKAGE_GIT="${GITEA_PACKAGE_GIT:-ygutierrez/salt}"
 GITEA_TARGET_REPO="${GITEA_TARGET_REPO:-ygutierrez/salt_salt}"
 GITEA_SERVER="${GITEA_SERVER:-src.opensuse.org}"
