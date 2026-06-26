@@ -35,9 +35,11 @@ submit-leap:
 		echo "    From: $(GITEA_PACKAGE_GIT):$(BRANCH)"; \
 		echo "    To:   $(GITEA_TARGET_REPO):$(BRANCH)"; \
 		echo "  DEBUG: Running git-obs command..."; \
+		echo "  DEBUG: Server: https://$(GITEA_SERVER)"; \
 		echo "  DEBUG: Source: $$SOURCE_OWNER/$$SOURCE_REPO:$(BRANCH)"; \
 		echo "  DEBUG: Target: $$TARGET_OWNER/$$TARGET_REPO:$(BRANCH)"; \
-		if PR_OUTPUT=$$(GITEA_TOKEN=$(GITEA_TOKEN) git-obs pr create \
+		if PR_OUTPUT=$$(GITEA_TOKEN=$(GITEA_TOKEN) GITEA_SERVER_URL=https://$(GITEA_SERVER) git-obs pr create \
+			--api-url "https://$(GITEA_SERVER)" \
 			--source-owner "$$SOURCE_OWNER" \
 			--source-repo "$$SOURCE_REPO" \
 			--source-branch "$(BRANCH)" \
