@@ -12,12 +12,7 @@ submit-leap:
 		echo "    Target: $(GITEA_TARGET_REPO) (branch: $(BRANCH))"; \
 		echo "    Server: $(GITEA_SERVER)"; \
 	else \
-		$(MAKE) --no-print-directory submit-leap-impl; \
-	fi
-
-.PHONY: submit-leap-impl
-submit-leap-impl:
-	@if [ -z "$(GITEA_TOKEN)" ]; then \
+		if [ -z "$(GITEA_TOKEN)" ]; then \
 		echo "  [ERROR] GITEA_TOKEN not set. Cannot create PR."; \
 		echo "  Set GITEA_TOKEN environment variable or pass it to make."; \
 		exit 1; \
@@ -44,4 +39,5 @@ submit-leap-impl:
 	else \
 		echo "  [OK] PR created (ID not parsed)"; \
 		echo "$$PR_OUTPUT"; \
+	fi; \
 	fi
