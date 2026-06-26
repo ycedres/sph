@@ -4,8 +4,14 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -e -u -o pipefail -c
 
+$(info DEBUG: leap-submit.mk loaded)
+$(info DEBUG: Available targets: submit-leap)
+
 .PHONY: submit-leap
 submit-leap:
+	@echo "DEBUG: submit-leap target called"
+	@echo "  DRY_RUN=$(DRY_RUN)"
+	@echo "  BRANCH=$(BRANCH)"
 	@if [ "$(DRY_RUN)" = "1" ]; then \
 		echo "  [DRY RUN] Would create Gitea PR via git-obs:"; \
 		echo "    Source: $(GITEA_PACKAGE_GIT) (branch: $(BRANCH))"; \

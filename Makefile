@@ -217,6 +217,11 @@ submit:
 	else \
 		if echo "$(BRANCH)" | grep -qi "leap"; then \
 			echo "Creating Gitea PR (PR branch detected)..."; \
+			echo "  DEBUG: Calling leap-submit.mk"; \
+			echo "  DEBUG: BRANCH=$(BRANCH)"; \
+			echo "  DEBUG: DRY_RUN=$(DRY_RUN)"; \
+			echo "  DEBUG: SOURCE_DIR=$(SOURCE_DIR)"; \
+			echo "  DEBUG: Makefile exists: $$(test -f makefiles/leap-submit.mk && echo YES || echo NO)"; \
 			$(MAKE) --no-print-directory -f makefiles/leap-submit.mk submit-leap \
 				SOURCE_DIR="$(SOURCE_DIR)" \
 				GITEA_PACKAGE_GIT="$(GITEA_PACKAGE_GIT)" \
