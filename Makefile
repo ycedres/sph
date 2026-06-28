@@ -18,6 +18,11 @@ GITEA_PACKAGE_GIT ?= ygutierrez/salt
 GITEA_TARGET_REPO ?= ygutierrez/salt_salt
 GITEA_SERVER ?= src.opensuse.org
 
+# Derived variables for git-obs (Leap branches)
+SOURCE_OWNER ?= $(firstword $(subst /, ,$(GITEA_PACKAGE_GIT)))
+SOURCE_REPO ?= $(lastword $(subst /, ,$(GITEA_PACKAGE_GIT)))
+TARGET_OWNER ?= $(firstword $(subst /, ,$(GITEA_TARGET_REPO)))
+
 # OBS projects for submission
 OBS_DEV_PROJECT ?= home:ygutierrez:branches:home:ygutierrez:branches:systemsmanagement:saltstack/salt
 OBS_TARGET_PROJECT ?= home:ygutierrez:branches:systemsmanagement:saltstack
@@ -229,6 +234,9 @@ submit:
 				GITEA_SERVER="$(GITEA_SERVER)" \
 				GITEA_TOKEN="$(GITEA_TOKEN)" \
 				BRANCH="$(BRANCH)" \
+				SOURCE_OWNER="$(SOURCE_OWNER)" \
+				SOURCE_REPO="$(SOURCE_REPO)" \
+				TARGET_OWNER="$(TARGET_OWNER)" \
 				DRY_RUN="$(DRY_RUN)"; \
 		else \
 			echo "Submitting to OBS (SR branch detected)..."; \

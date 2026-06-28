@@ -18,7 +18,7 @@ set -o pipefail
 #   - slfo-main  (sr)
 #   - slfo-1.2   (sr)
 # =============================================================================
-BRANCH="${BRANCH:-factory}"
+BRANCH="${BRANCH:-leap-16.0}"
 
 # GitHub branch defaults to match the target branch (can be overridden)
 GITHUB_BRANCH="${GITHUB_BRANCH:-$BRANCH}"
