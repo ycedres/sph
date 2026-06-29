@@ -36,10 +36,11 @@ submit-leap:
 		echo "    From: $(GITEA_PACKAGE_GIT):$(BRANCH)"; \
 		echo "    To:   $(GITEA_TARGET_REPO):$(BRANCH)"; \
 		echo "  DEBUG: Setting up git-obs login..."; \
-		if ! git-obs login list | grep -q "src.opensuse.org"; then \
+		if ! git-obs login list | grep -q "opensuse-salt"; then \
 			echo "  DEBUG: Adding git-obs login entry..."; \
-			GITEA_TOKEN=$(GITEA_TOKEN) git-obs login add opensuse \
+			GITEA_TOKEN=$(GITEA_TOKEN) git-obs login add opensuse-salt \
 				--url https://$(GITEA_SERVER) \
+				--user "$(SOURCE_OWNER)" \
 				--token "$(GITEA_TOKEN)" \
 				--set-as-default >/dev/null 2>&1 || true; \
 		fi; \
@@ -49,8 +50,8 @@ submit-leap:
 		echo "    --source-branch \"$(BRANCH)\""; \
 		echo "    --target-owner \"$(TARGET_OWNER)\""; \
 		echo "    --target-branch \"$(BRANCH)\""; \
-		echo "  DEBUG: Command: git-obs -G opensuse pr create --source-owner \"$(SOURCE_OWNER)\" --source-repo \"$(SOURCE_REPO)\" --source-branch \"$(BRANCH)\" --target-owner \"$(TARGET_OWNER)\" --target-branch \"$(BRANCH)\" --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
-		if PR_OUTPUT=$$(git-obs -G opensuse pr create \
+		echo "  DEBUG: Command: git-obs -G opensuse-salt pr create --source-owner \"$(SOURCE_OWNER)\" --source-repo \"$(SOURCE_REPO)\" --source-branch \"$(BRANCH)\" --target-owner \"$(TARGET_OWNER)\" --target-branch \"$(BRANCH)\" --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
+		if PR_OUTPUT=$$(git-obs -G opensuse-salt pr create \
 		    --source-owner "$(SOURCE_OWNER)" \
 			--source-repo "$(SOURCE_REPO)" \
 			--source-branch "$(BRANCH)" \
