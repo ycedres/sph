@@ -24,7 +24,7 @@ submit-leap:
 		echo "    Source: $(GITEA_PACKAGE_GIT) (branch: $(BRANCH))"; \
 		echo "    Target: $(GITEA_TARGET_REPO) (branch: $(BRANCH))"; \
 		echo "    Server: $(GITEA_SERVER)"; \
-		echo "    Command: git-obs -G opensuse pr create --source-owner \"$(SOURCE_OWNER)\" --source-repo \"$(SOURCE_REPO)\" --source-branch \"$(BRANCH)\" --target-owner \"$(TARGET_OWNER)\" --target-branch \"$(BRANCH)\" --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
+		echo "    Command: git-obs -G opensuse-salt pr create --source-owner \"$(SOURCE_OWNER)\" --source-repo \"$(SOURCE_REPO)\" --source-branch \"$(BRANCH)\" --target-owner \"$(TARGET_OWNER)\" --target-branch \"$(BRANCH)\" --title \"$$PR_TITLE\" --description \"$$PR_DESCRIPTION\""; \
 	else \
 		if [ -z "$(GITEA_TOKEN)" ]; then \
 			echo "  [ERROR] GITEA_TOKEN not set. Cannot create PR."; \
