@@ -15,7 +15,7 @@ GITHUB_BRANCH ?= $(BRANCH)
 
 # Target package-git repository (Gitea)
 GITEA_PACKAGE_GIT ?= ygutierrez/salt
-GITEA_TARGET_REPO ?= ygutierrez/salt_salt
+GITEA_TARGET_REPO ?= salt/salt
 GITEA_SERVER ?= src.opensuse.org
 
 # Derived variables for git-obs (Leap branches)

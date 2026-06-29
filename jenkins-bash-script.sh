@@ -32,7 +32,7 @@ MAKEFILES_REPO="${MAKEFILES_REPO:-https://github.com/ycedres/sph.git}"
 MAKEFILES_BRANCH="${MAKEFILES_BRANCH:-main}"
 
 GITEA_PACKAGE_GIT="${GITEA_PACKAGE_GIT:-ygutierrez/salt}"
-GITEA_TARGET_REPO="${GITEA_TARGET_REPO:-ygutierrez/salt_salt}"
+GITEA_TARGET_REPO="${GITEA_TARGET_REPO:-salt/salt}"
 GITEA_SERVER="${GITEA_SERVER:-src.opensuse.org}"
 
 GITHUB_SOURCE_GIT="${GITHUB_SOURCE_GIT:-https://github.com/ycedres/salt-1}"
